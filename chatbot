@@ -1,0 +1,143 @@
+import speech_recognition as sr
+import pyttsx3
+import pywhatkit
+import datetime
+import wikipedia
+import pyjokes
+from newspaper import Article
+import random
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import nltk
+import warnings
+warnings.filterwarnings('ignore')
+nltk.download('punkt', quiet=True)
+article = Article('https://www.mayoclinic.org/diseases-conditions/chronic-kidney-disease/symptoms-causes/syc-20354521')
+article.download()
+article.parse() 
+article.nlp()
+corpus = article.text 
+text = corpus
+sentence_list = nltk.sent_tokenize(text)
+
+def greeting_response(text):
+
+  text = text.lower()
+  bot_greetings = ["howdy","hi", "hey", "what's good",  "hello","hey there"]
+  
+  user_greetings = ["hi", "hello",  "hola", "greetings",  "wassup","hey"] 
+  
+  for word in text.split():
+    if word in user_greetings:
+      return random.choice(bot_greetings)
+
+def index_sort(list_var):
+  length = len(list_var)
+  list_index = list(range(0, length))
+  x  = list_var
+  for i in range(length):
+    for j in range(length):
+      if x[list_index[i]] > x[list_index[j]]:
+        temp = list_index[i]
+        list_index[i] = list_index[j]
+        list_index[j] = temp
+  return list_index
+
+def bot_response(user_input):
+    user_input = user_input.lower() 
+    sentence_list.append(user_input)
+    bot_response='' 
+    cm = CountVectorizer().fit_transform(sentence_list) 
+    similarity_scores = cosine_similarity(cm[-1], cm) 
+    flatten = similarity_scores.flatten() 
+    index = index_sort(flatten)
+    index = index[1:] 
+    response_flag=0
+    j = 0
+    for i in range(0, len(index)):
+      if flatten[index[i]] > 0.0:
+        bot_response = bot_response+' '+sentence_list[index[i]]
+        response_flag = 1
+        j = j+1
+      if j > 2:
+        break  
+
+    if(response_flag==0):
+        bot_response = bot_response+' '+"I apologize, I don't understand."
+        sentence_list.remove(user_input) 
+       
+    return bot_response
+
+listener = sr.Recognizer()
+engine = pyttsx3.init()
+mic = sr.Microphone()
+voices = engine.getProperty('voices')
+engine.setProperty('voice', voices[1].id)
+
+
+def talk(text):
+    engine.say(text)
+    engine.runAndWait()
+    
+    
+
+
+
+def take_command():
+    with sr.Microphone() as source:
+        print('listening...')
+        voice = listener.listen(source)
+        listener.energy_threshold = 50
+        try:
+            print("Recognizing...")
+            command = listener.recognize_google(voice, language="en-in")
+            print(command)
+            
+        except Exception as e:
+            talk("Say that again please!")
+            return "NONE"
+        
+    return command
+
+
+if __name__ == "__main__":
+    
+    talk("Hi! My name is KARAN, I am your voice assistant. How can I help you?")
+    while True: 
+        command = take_command().lower()
+        if 'play' in command:
+            song = command.replace('play', '')
+            talk('playing ' + song)
+            pywhatkit.playonyt(song)
+        elif 'time' in command:
+            time = datetime.datetime.now().strftime('%I:%M %p')
+            talk('Current time is ' + time)
+            print(time)
+        elif 'wikipedia' in command:
+            command = command.replace("wikipedia","")
+            info = wikipedia.summary(command, sentences=1)
+            print(info)
+            talk(f'According to wikipedia, {command}')
+        elif 'date' in command:
+            talk('sorry, I am busy today')
+        elif 'are you single' in command:
+            talk('I am in a relationship with momos')
+        elif 'joke' in command:
+            talk(pyjokes.get_joke())
+        elif "medical chatbot" in command:
+            talk("I am DOCTOR BOT, I will answer your queries about Chronic Kidney Disease.")
+            exit_list = ['exit', 'see you later','bye', 'quit', 'break']
+            while(True):
+                user_input = take_command()
+                if(user_input.lower() in exit_list):
+                    print("Doc Bot: Chat with you later !")
+                    break
+                else:
+                    if(greeting_response(user_input)!= None):
+                        print("Doc Bot: "+greeting_response(user_input))
+                    else:
+                        print("Doc Bot: "+bot_response(user_input))
+            
+        elif "Bye" or "goodnight" in command:
+            talk("take care!")
+            break
